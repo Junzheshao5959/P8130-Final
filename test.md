@@ -22,7 +22,9 @@ cid_dt = read_csv('cdi.csv')
 
 ``` r
 cid_dt = cid_dt %>% mutate(region = factor(region),
-                           crimes = crimes/pop * 1000)
+                           crimes = crimes/pop * 1000,
+                           docs = docs/pop *1000,
+                           beds = beds/pop *1000)
 cid_dt %>% select(-c(id,cty,state,crimes,region)) %>%
     pivot_longer(cols = everything(), names_to = "variables", values_to = "value") %>%
     ggplot(aes(factor(variables), value)) +geom_violin() + facet_wrap(~variables, scale="free")
@@ -32,6 +34,19 @@ cid_dt %>% select(-c(id,cty,state,crimes,region)) %>%
 
 ## outlier
 
+``` r
+# x = "area"
+# cid_dt = as.data.table(cid_dt)
+# for (x in colnames(cid_dt %>% select(-c(id,cty,state,crimes,region)))){
+#   print(x)
+#   cid_dt = cid_dt[!(cid_dt[[x]] %in% boxplot.stats(cid_dt[[x]])$out)]
+# }
+# cid_dt = as_tibble(cid_dt)
+# cid_dt %>% select(-c(id,cty,state,crimes,region)) %>%
+#   pivot_longer(cols = everything(), names_to = "variables", values_to = "value") %>%
+#   ggplot(aes(factor(variables), value)) +geom_boxplot() + facet_wrap(~variables, scale="free")
+```
+
 ## regression: stepwise, VIF …
 
 ``` r
@@ -39,7 +54,7 @@ set.seed(8130)
 validation_dt = cid_dt %>% sample_frac(0.1)
 tt_dt = cid_dt %>% filter(!(id %in% validation_dt$id))
 
-tt_dt %>% select(-c(id,cty,state,crimes,region)) %>% as.data.frame %>% plot(pch=20 , cex=1.5 , col="#69b3a2")
+tt_dt %>% select(-c(id,cty,state,crimes,region)) %>% as.data.frame %>% plot(pch=20 , cex=0.05 , col="#69b3a2")
 ```
 
 ![](test_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
@@ -48,8 +63,8 @@ tt_dt %>% select(-c(id,cty,state,crimes,region)) %>% as.data.frame %>% plot(pch=
 set.seed(8130)
 train_dt = tt_dt %>% sample_frac(0.7)
 test_dt = tt_dt %>% filter(!(id %in% train_dt$id))
-
-t_select = train_dt %>% select(-c(id,cty,state,pop,totalinc,docs))
+t_select = train_dt %>% select(-c(id,cty,state,pop))
+#t_select = train_dt %>% select(-c(id,cty,state,pop))
 intercept_only <-  lm(crimes ~ 1, data = t_select)
 
 #define model with all predictors
@@ -64,23 +79,23 @@ forward$anova
     ## 1            NA         NA       276  170064.93 1780.317
     ## 2  + poverty -1 42417.2012       275  127647.73 1702.844
     ## 3   + region -3 21193.9721       272  106453.75 1658.551
-    ## 4     + beds -1 16448.4747       271   90005.28 1614.059
-    ## 5   + bagrad -1  7729.2905       270   82275.99 1591.187
-    ## 6 + pcincome -1  1598.8260       269   80677.16 1587.752
-    ## 7    + pop18 -1  2382.6550       268   78294.51 1581.448
-    ## 8    + pop65 -1  1358.0712       267   76936.44 1578.601
-    ## 9   + hsgrad -1   565.6121       266   76370.82 1578.557
+    ## 4     + docs -1 17060.2463       271   89393.51 1612.170
+    ## 5 + totalinc -1  5297.0043       270   84096.50 1597.250
+    ## 6     + beds -1  2493.3320       269   81603.17 1590.913
+    ## 7   + bagrad -1  3683.4191       268   77919.75 1580.119
+    ## 8 + pcincome -1   949.0602       267   76970.69 1578.724
+    ## 9    + pop18 -1  3140.6825       266   73830.01 1569.184
 
 ``` r
 forward$coefficients
 ```
 
     ##   (Intercept)       poverty       region2       region3       region4 
-    ## -1.082250e+02  2.998678e+00  1.531464e+01  2.780445e+01  1.929891e+01 
-    ##          beds        bagrad      pcincome         pop18         pop65 
-    ##  2.093135e-03 -3.146961e-01  2.063635e-03  1.489331e+00  7.821320e-01 
-    ##        hsgrad 
-    ##  4.537523e-01
+    ## -5.625844e+01  2.127342e+00  1.275529e+01  2.697177e+01  2.221295e+01 
+    ##          docs      totalinc          beds        bagrad      pcincome 
+    ## -4.189414e-01  2.154915e-04  3.451125e+00 -1.248342e-01  1.811945e-03 
+    ##         pop18 
+    ##  1.173439e+00
 
 ``` r
 test_dt$pred_crime = predict(all, test_dt)
@@ -94,23 +109,25 @@ test_dt %>% plot(residual ~ crimes, data =.)
 mean(test_dt$residual^2)
 ```
 
-    ## [1] 310.5697
+    ## [1] 297.5467
 
 ``` r
 car::vif(all)
 ```
 
     ##              GVIF Df GVIF^(1/(2*Df))
-    ## area     1.448687  1        1.203614
-    ## pop18    2.648302  1        1.627360
-    ## pop65    1.754283  1        1.324493
-    ## beds     1.289336  1        1.135489
-    ## hsgrad   4.749307  1        2.179290
-    ## bagrad   7.326535  1        2.706757
-    ## poverty  3.089264  1        1.757630
-    ## unemp    1.888160  1        1.374103
-    ## pcincome 4.646000  1        2.155458
-    ## region   2.560427  3        1.169640
+    ## area     1.459564  1        1.208124
+    ## pop18    2.721523  1        1.649704
+    ## pop65    2.052878  1        1.432787
+    ## docs     3.342527  1        1.828258
+    ## beds     3.748385  1        1.936075
+    ## hsgrad   4.784924  1        2.187447
+    ## bagrad   7.874531  1        2.806159
+    ## poverty  3.882542  1        1.970417
+    ## unemp    2.047445  1        1.430890
+    ## pcincome 4.901364  1        2.213902
+    ## totalinc 1.294216  1        1.137636
+    ## region   2.917165  3        1.195346
 
 ## lasso
 
@@ -125,7 +142,7 @@ plot(cv_model)
 ![](test_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
 ``` r
-lambda_se = cv_model$lambda.1se
+lambda_se = cv_model$lambda.min
 best_model <- glmnet(x, y, alpha = 1, lambda = lambda_se)
 c =  coef(best_model)
 print(c)
@@ -133,20 +150,20 @@ print(c)
 
     ## 14 x 1 sparse Matrix of class "dgCMatrix"
     ##                        s0
-    ## (Intercept) -3.616861e+01
-    ## area        -5.628908e-04
-    ## pop          .           
-    ## pop18        1.001365e+00
-    ## pop65        1.845595e-01
-    ## docs         .           
-    ## beds         4.892768e-03
-    ## hsgrad       .           
-    ## bagrad       .           
-    ## poverty      2.353167e+00
-    ## unemp       -3.952911e-01
-    ## pcincome     1.273451e-03
-    ## totalinc    -5.204491e-04
-    ## region       7.297640e+00
+    ## (Intercept) -8.287988e+01
+    ## area        -1.787549e-03
+    ## pop          7.226112e-05
+    ## pop18        1.379204e+00
+    ## pop65        2.602428e-01
+    ## docs        -6.943673e-01
+    ## beds         3.503800e+00
+    ## hsgrad      -9.472505e-02
+    ## bagrad      -8.687184e-02
+    ## poverty      2.256426e+00
+    ## unemp       -1.252174e-01
+    ## pcincome     2.819901e-03
+    ## totalinc    -3.250351e-03
+    ## region       9.171573e+00
 
 ``` r
 inds<-which(c!=0)
@@ -155,7 +172,7 @@ f = paste("bwt ~ ",paste(variables, collapse = " + "),sep = "")
 cat(f)
 ```
 
-    ## bwt ~ area + pop18 + pop65 + beds + poverty + unemp + pcincome + totalinc + region
+    ## bwt ~ area + pop + pop18 + pop65 + docs + beds + hsgrad + bagrad + poverty + unemp + pcincome + totalinc + region
 
 # result
 
@@ -174,7 +191,7 @@ abline(0,0)
 mean(test_dt_lasso$residual^2)
 ```
 
-    ## [1] 310.5697
+    ## [1] 297.5467
 
 ``` r
 qqnorm(test_dt_lasso$res_lasso)
@@ -188,7 +205,7 @@ test_dt_lasso %>% plot(res_lasso ~ crimes, data =.)
 mean(test_dt_lasso$res_lasso^2)
 ```
 
-    ## [1] 318.0801
+    ## [1] 288.6639
 
 ``` r
 abline(0,0)

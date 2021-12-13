@@ -17,14 +17,16 @@ library(knitr)
 ```{r}
 cid_dt = read_csv('cdi.csv')
 cid_dt = cid_dt %>% mutate(region = factor(region),
-                           crimes = crimes/pop * 1000)
+                           crimes = crimes/pop * 1000,
+                           docs = docs/pop *1000,
+                           beds = beds/pop *1000)
 cid_dt %>% select(-c(id,cty,state,crimes,region)) %>%
     pivot_longer(cols = everything(), names_to = "variables", values_to = "value") %>%
     ggplot(aes(factor(variables), value)) +geom_violin() + facet_wrap(~variables, scale="free")
 ```
 
 ## outlier
-```{r include=FALSE}
+```{r }
 # x = "area"
 # cid_dt = as.data.table(cid_dt)
 # for (x in colnames(cid_dt %>% select(-c(id,cty,state,crimes,region)))){
@@ -43,13 +45,13 @@ set.seed(8130)
 validation_dt = cid_dt %>% sample_frac(0.1)
 tt_dt = cid_dt %>% filter(!(id %in% validation_dt$id))
 
-tt_dt %>% select(-c(id,cty,state,crimes,region)) %>% as.data.frame %>% plot(pch=20 , cex=1.5 , col="#69b3a2")
+tt_dt %>% select(-c(id,cty,state,crimes,region)) %>% as.data.frame %>% plot(pch=20 , cex=0.05 , col="#69b3a2")
 
 set.seed(8130)
 train_dt = tt_dt %>% sample_frac(0.7)
 test_dt = tt_dt %>% filter(!(id %in% train_dt$id))
-
-t_select = train_dt %>% select(-c(id,cty,state,pop,totalinc,docs))
+t_select = train_dt %>% select(-c(id,cty,state,pop))
+#t_select = train_dt %>% select(-c(id,cty,state,pop))
 intercept_only <-  lm(crimes ~ 1, data = t_select)
 
 #define model with all predictors
@@ -73,7 +75,7 @@ x = train_dt %>% select(-c(crimes,id,cty,state)) %>% data.matrix()
 set.seed(1)
 cv_model <- cv.glmnet(x, y, alpha = 1)
 plot(cv_model)
-lambda_se = cv_model$lambda.1se
+lambda_se = cv_model$lambda.min
 best_model <- glmnet(x, y, alpha = 1, lambda = lambda_se)
 c =  coef(best_model)
 print(c)
