@@ -165,6 +165,7 @@ test_dt_lasso = test_dt
 test_dt_lasso$pred_lasso = predict(best_model, s = lambda_se, newx = new)
 test_dt_lasso$res_lasso = test_dt_lasso$pred_lasso -test_dt_lasso$crimes
 test_dt_lasso %>% plot(residual ~ crimes, data =.)
+abline(0,0)
 ```
 
 ![](test_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
@@ -176,13 +177,28 @@ mean(test_dt_lasso$residual^2)
     ## [1] 310.5697
 
 ``` r
-test_dt_lasso %>% plot(res_lasso ~ crimes, data =.)
+qqnorm(test_dt_lasso$res_lasso)
+qqline(test_dt_lasso$res_lasso) 
 ```
 
 ![](test_files/figure-gfm/unnamed-chunk-5-2.png)<!-- -->
 
 ``` r
+test_dt_lasso %>% plot(res_lasso ~ crimes, data =.)
 mean(test_dt_lasso$res_lasso^2)
 ```
 
     ## [1] 318.0801
+
+``` r
+abline(0,0)
+```
+
+![](test_files/figure-gfm/unnamed-chunk-5-3.png)<!-- -->
+
+``` r
+qqnorm(test_dt_lasso$residual)
+qqline(test_dt_lasso$residual) 
+```
+
+![](test_files/figure-gfm/unnamed-chunk-5-4.png)<!-- -->

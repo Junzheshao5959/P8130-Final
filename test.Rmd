@@ -90,9 +90,14 @@ test_dt_lasso = test_dt
 test_dt_lasso$pred_lasso = predict(best_model, s = lambda_se, newx = new)
 test_dt_lasso$res_lasso = test_dt_lasso$pred_lasso -test_dt_lasso$crimes
 test_dt_lasso %>% plot(residual ~ crimes, data =.)
+abline(0,0)
 mean(test_dt_lasso$residual^2)
+qqnorm(test_dt_lasso$res_lasso)
+qqline(test_dt_lasso$res_lasso) 
 test_dt_lasso %>% plot(res_lasso ~ crimes, data =.)
 mean(test_dt_lasso$res_lasso^2)
-
+abline(0,0)
+qqnorm(test_dt_lasso$residual)
+qqline(test_dt_lasso$residual) 
 ```
 
