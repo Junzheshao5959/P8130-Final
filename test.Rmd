@@ -1,0 +1,98 @@
+---
+title: "TEST"
+author: "Junzhe Shao"
+date: "12/12/2021"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+library(glmnet)
+library(knitr)
+```
+
+## data loading
+```{r}
+cid_dt = read_csv('cdi.csv')
+cid_dt = cid_dt %>% mutate(region = factor(region),
+                           crimes = crimes/pop * 1000)
+cid_dt %>% select(-c(id,cty,state,crimes,region)) %>%
+    pivot_longer(cols = everything(), names_to = "variables", values_to = "value") %>%
+    ggplot(aes(factor(variables), value)) +geom_violin() + facet_wrap(~variables, scale="free")
+```
+
+## outlier
+```{r include=FALSE}
+# x = "area"
+# cid_dt = as.data.table(cid_dt)
+# for (x in colnames(cid_dt %>% select(-c(id,cty,state,crimes,region)))){
+#   print(x)
+#   cid_dt = cid_dt[!(cid_dt[[x]] %in% boxplot.stats(cid_dt[[x]])$out)]
+# }
+# cid_dt = as_tibble(cid_dt)
+# cid_dt %>% select(-c(id,cty,state,crimes,region)) %>%
+#   pivot_longer(cols = everything(), names_to = "variables", values_to = "value") %>%
+#   ggplot(aes(factor(variables), value)) +geom_boxplot() + facet_wrap(~variables, scale="free")
+```
+
+## regression: stepwise, VIF ...
+```{r}
+set.seed(8130)
+validation_dt = cid_dt %>% sample_frac(0.1)
+tt_dt = cid_dt %>% filter(!(id %in% validation_dt$id))
+
+tt_dt %>% select(-c(id,cty,state,crimes,region)) %>% as.data.frame %>% plot(pch=20 , cex=1.5 , col="#69b3a2")
+
+set.seed(8130)
+train_dt = tt_dt %>% sample_frac(0.7)
+test_dt = tt_dt %>% filter(!(id %in% train_dt$id))
+
+t_select = train_dt %>% select(-c(id,cty,state,pop,totalinc,docs))
+intercept_only <-  lm(crimes ~ 1, data = t_select)
+
+#define model with all predictors
+all <- lm(crimes ~ ., data = t_select)
+
+#perform forward stepwise regression
+forward <- step(intercept_only, direction='forward', scope=formula(all), trace=0)
+forward$anova
+forward$coefficients
+test_dt$pred_crime = predict(all, test_dt)
+test_dt$residual = test_dt$pred_crime -test_dt$crimes
+test_dt %>% plot(residual ~ crimes, data =.)
+mean(test_dt$residual^2)
+car::vif(all)
+```
+
+## lasso
+```{r}
+y = train_dt %>% select(crimes) %>% data.matrix()
+x = train_dt %>% select(-c(crimes,id,cty,state)) %>% data.matrix()
+set.seed(1)
+cv_model <- cv.glmnet(x, y, alpha = 1)
+plot(cv_model)
+lambda_se = cv_model$lambda.1se
+best_model <- glmnet(x, y, alpha = 1, lambda = lambda_se)
+c =  coef(best_model)
+print(c)
+inds<-which(c!=0)
+variables<-row.names(c)[inds][-1]
+f = paste("bwt ~ ",paste(variables, collapse = " + "),sep = "")
+cat(f)
+```
+# result
+
+```{r}
+new = test_dt %>% select(-c(crimes,id,cty,state,pred_crime,residual)) %>% data.matrix()
+test_dt_lasso = test_dt
+test_dt_lasso$pred_lasso = predict(best_model, s = lambda_se, newx = new)
+test_dt_lasso$res_lasso = test_dt_lasso$pred_lasso -test_dt_lasso$crimes
+test_dt_lasso %>% plot(residual ~ crimes, data =.)
+mean(test_dt_lasso$residual^2)
+test_dt_lasso %>% plot(res_lasso ~ crimes, data =.)
+mean(test_dt_lasso$res_lasso^2)
+
+```
+
